@@ -332,7 +332,7 @@ __global__ void sumReduce(decimal_t *p_decimals, decimal_t *output, unsigned int
     // write result for this block to global mem
     if (tid == 0) {
         memcpy(&output[blockIdx.x], &sdata[0], sizeof(decimal_t));
-        //printf("%d shared mem: %d %d %d %d\n",blockIdx.x, sdata[0].buf[0] ,sdata[0].buf[1], sdata[0].buf[2], sdata[0].buf[3]);
+        //printf("%4d shared mem: %d %d %d %d\n",blockIdx.x, sdata[0].buf[0] ,sdata[0].buf[1], sdata[0].buf[2], sdata[0].buf[3]);
     }
 }
 
@@ -350,21 +350,45 @@ __global__ void sumReduce2(decimal_t *p_decimals, decimal_t *output,unsigned int
     memcpy(output, &sum, sizeof(decimal_t));
 }
 
-void sumDecimal(decimal_t *p_decimals, decimal_t *output,unsigned int len){
+void sumDecimal(decimal_t *p_decimals, decimal_t *output,unsigned int len) {
     uint32_t dimBlock = BLOCK_SIZE;
+
     uint32_t dimGrid = (len + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
     decimal_t *p_d_outputs1, *p_d_outputs2;
+    struct decimal_t * p_d_decimals;
+    if(len > RECORD_PER_STREAM) {
+        //using stream to hide to first mem copy
+        cudaStream_t stream;
+        cudaStreamCreate(&stream);
+        uint32_t streamGrid = (RECORD_PER_STREAM + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+        gpuErrchk(cudaMalloc((void **) &p_d_decimals, sizeof(struct decimal_t) * RECORD_PER_STREAM));
+        gpuErrchk(cudaMalloc((void **) &p_d_outputs1, sizeof(struct decimal_t) * dimGrid));
+        decimal_t *p = p_d_outputs1;
+        for (int i = 0; i < len; i += RECORD_PER_STREAM, p += streamGrid) {
+            cudaMemcpyAsync(p_d_decimals, p_decimals, sizeof(struct decimal_t) * RECORD_PER_STREAM,
+                            cudaMemcpyHostToDevice, stream);
+            if (i + RECORD_PER_STREAM <= len) {
+                sumReduce <<< streamGrid, dimBlock, BLOCK_SIZE * sizeof(decimal_t), stream >>>
+                                                                                  (p_d_decimals, p, RECORD_PER_STREAM);
+            } else {
+                sumReduce <<< streamGrid, dimBlock, BLOCK_SIZE * sizeof(decimal_t), stream >>>
+                                                                                  (p_d_decimals, p, len - i);
+            }
+        }
 
-    gpuErrchk(cudaMalloc((void **)&p_d_outputs1, sizeof(struct decimal_t) * dimGrid));
+        cudaStreamSynchronize(stream);
+    }else{
 
-    for(int i , i <)
-    cudaMemcpy(p_d_decimals, p_decimals , sizeof(struct decimal_t) * DECIMAL_ARRAY_LEN , cudaMemcpyHostToDevice);
-    sumReduce <<< dimGrid, dimBlock, BLOCK_SIZE * sizeof(decimal_t) >>> (p_d_decimals, p_d_outputs1, len);
+        gpuErrchk(cudaMalloc((void **) &p_d_decimals, sizeof(struct decimal_t) * len));
+        gpuErrchk(cudaMalloc((void **) &p_d_outputs1, sizeof(struct decimal_t) * dimGrid));
+        cudaMemcpy(p_d_decimals, p_decimals, sizeof(struct decimal_t) * len, cudaMemcpyHostToDevice);
+        sumReduce <<< dimGrid, dimBlock, BLOCK_SIZE * sizeof(decimal_t) >>> (p_d_decimals, p_d_outputs1, len );
+    }
 
     gpuErrchk(cudaMalloc((void **)&p_d_outputs2, sizeof(struct decimal_t) * dimGrid));
+
     len = dimGrid;
     dimGrid = (len + BLOCK_SIZE - 1) / BLOCK_SIZE;
     while(len > 1) {
@@ -375,7 +399,15 @@ void sumDecimal(decimal_t *p_decimals, decimal_t *output,unsigned int len){
         len = dimGrid;
         dimGrid = (len + BLOCK_SIZE - 1) / BLOCK_SIZE;
     }
-    cudaMemcpy(output, &p_d_outputs2[0] , sizeof(struct decimal_t) , cudaMemcpyDeviceToHost);
-    //memcpy(output, &p_d_outputs2[0], sizeof(decimal_t));
+    cudaMemcpy(output, &p_d_outputs1[0] , sizeof(struct decimal_t) , cudaMemcpyDeviceToHost);
+
+    if(p_d_decimals)
+        gpuErrchk(cudaFree(p_d_decimals));
+
+    if(p_d_outputs1)
+        gpuErrchk(cudaFree(p_d_outputs1));
+
+    if(p_d_outputs2)
+        gpuErrchk(cudaFree(p_d_outputs2));
     //sumReduce2<<<1, 1>>>(p_decimals, output, len);
 }

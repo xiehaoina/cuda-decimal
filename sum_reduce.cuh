@@ -12,7 +12,6 @@
 
 
 #define RECORD_PER_STREAM 256*1024*1024/sizeof(struct decimal_t)  //256 M per stream
-#define MEM_SIZE_PER_STREAM RECORD_PER_STREAM*sizeof(struct decimal_t)
 #define BLOCK_SIZE 128
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
