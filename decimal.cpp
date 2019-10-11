@@ -377,8 +377,8 @@ void max_decimal(int precision, int frac, decimal_t *to) {
 }
 
 static inline dec1 *remove_leading_zeroes(const decimal_t *from,
-                                          int *intg_result) {
-    int intg = from->intg, i;
+                                          decimal_len_t *intg_result) {
+    decimal_len_t intg = from->intg, i;
     dec1 *buf0 = (dec1 *)from->buf;
     i = ((intg - 1) % DIG_PER_DEC1) + 1;
     while (intg > 0 && *buf0 == 0) {
@@ -444,7 +444,7 @@ int decimal_actual_fraction(const decimal_t *from) {
 int decimal2string(const decimal_t *from, char *to, int *to_len,
                    int fixed_precision, int fixed_decimals, char filler) {
     /* {intg_len, frac_len} output widths; {intg, frac} places in input */
-    int len, intg, frac = from->frac, i, intg_len, frac_len, fill;
+    decimal_len_t len, intg, frac = from->frac, i, intg_len, frac_len, fill;
     /* number digits before decimal point */
     int fixed_intg = (fixed_precision ? (fixed_precision - fixed_decimals) : 0);
     int error = E_DEC_OK;
@@ -1946,7 +1946,7 @@ static int do_sub(const decimal_t *from1, const decimal_t *from2,
 }
 
 int decimal_intg(const decimal_t *from) {
-    int res;
+    decimal_len_t res;
     remove_leading_zeroes(from, &res);
     return res;
 }

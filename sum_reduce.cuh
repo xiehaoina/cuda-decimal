@@ -24,6 +24,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     }
 }
 
-void sumDecimal(decimal_t *p_decimals, decimal_t *output, unsigned int len);
+void sum_decimal(decimal_t *p_decimals, decimal_t *output, unsigned int len);
 
 #endif //DECIMAL_SUM_REDUCE_CUH_H

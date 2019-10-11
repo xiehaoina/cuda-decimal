@@ -48,6 +48,20 @@ typedef unsigned char uchar;
 #define my_isspace(c) (c == '\t')
 #define NOT_FIXED_DEC 31
 #define DECIMAL_LEN  4
+
+#define ASSIGN_DECIMAL(a, b)\
+ do { \
+    a.intg = b.intg; \
+    a.frac = b.frac; \
+    a.len = b.len; \
+    a.sign = b.sign; \
+    for (int ijk = 0; ijk < DECIMAL_LEN ; ijk++)\
+        a.buf[ijk] = b.buf[ijk]; \
+}while(0)
+
+
+typedef unsigned char decimal_len_t;
+
 /**
     intg is the number of *decimal* digits (NOT number of decimal_digit_t's !)
          before the point
@@ -57,8 +71,9 @@ typedef unsigned char uchar;
     sign false means positive, true means negative
     buf  is an array of decimal_digit_t's
  */
+
 struct decimal_t {
-    int intg, frac, len;
+    decimal_len_t intg, frac, len;
     bool sign;
     decimal_digit_t buf[DECIMAL_LEN];
 };
